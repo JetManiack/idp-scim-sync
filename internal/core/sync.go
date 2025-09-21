@@ -86,6 +86,10 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 		return fmt.Errorf("error getting groups members: %w", err)
 	}
 
+	if idpGroupsMembersResult.Items == 0 {
+		return fmt.Errorf("error: received empty group list skipping updates")
+	}
+
 	log.WithFields(
 		log.Fields{
 			"group_filter":   ss.provGroupsFilter,
@@ -99,6 +103,10 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 	idpUsersResult, err := ss.prov.GetUsersByGroupsMembers(ctx, idpGroupsMembersResult)
 	if err != nil {
 		return fmt.Errorf("error getting users from the identity provider: %w", err)
+	}
+
+	if idpUsersResult.Items == 0 {
+		return fmt.Errorf("error: received empty users list skipping updates")
 	}
 
 	log.WithFields(
