@@ -75,6 +75,10 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 		return fmt.Errorf("error getting groups from the identity provider: %w", err)
 	}
 
+	if idpGroupsResult.Items == 0 {
+		return fmt.Errorf("error: received empty group's list skipping updates")
+	}
+
 	log.WithFields(
 		log.Fields{
 			"group_filter": ss.provGroupsFilter,
@@ -87,7 +91,7 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 	}
 
 	if idpGroupsMembersResult.Items == 0 {
-		return fmt.Errorf("error: received empty group list skipping updates")
+		return fmt.Errorf("error: received empty group's members list skipping updates")
 	}
 
 	log.WithFields(
