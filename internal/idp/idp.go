@@ -122,6 +122,7 @@ func (i *IdentityProvider) GetUsers(ctx context.Context, filter []string) (*mode
 
 		// skip nil pointer
 		if gu == nil {
+			slog.Warn("idp: error getting user: user does not exist, buildUsers() returned nil")
 			continue
 		}
 

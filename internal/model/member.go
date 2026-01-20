@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"log/slog"
 	"sort"
 
 	"github.com/slashdevops/idp-scim-sync/internal/deepcopy"
@@ -88,7 +89,9 @@ func (mr MembersResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, member := range mr.Resources {
+		//skip nil pointer
 		if member == nil {
+			slog.Warn("model: member is nil")
 			continue
 		}
 		if err := enc.Encode(member); err != nil {
@@ -170,7 +173,9 @@ func (gm GroupMembers) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, member := range gm.Resources {
+		//skip nil pointer
 		if member == nil {
+			slog.Warn("model: member is nil")
 			continue
 		}
 		if err := enc.Encode(member); err != nil {
@@ -253,7 +258,9 @@ func (gmr GroupsMembersResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, group := range gmr.Resources {
+		//skip nil pointer
 		if group == nil {
+			slog.Warn("model: group is nil")
 			continue
 		}
 		if err := enc.Encode(group); err != nil {
