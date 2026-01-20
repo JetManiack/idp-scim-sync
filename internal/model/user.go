@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"log/slog"
 	"sort"
 
 	"github.com/slashdevops/idp-scim-sync/internal/deepcopy"
@@ -524,6 +525,11 @@ func (ur UsersResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, u := range ur.Resources {
+		//skip nil pointer
+		if u == nil {
+			slog.Warn("model: error getting user: user does not exist")
+			continue
+		}
 		if err := enc.Encode(u); err != nil {
 			return nil, err
 		}
@@ -578,6 +584,9 @@ func (ur *UsersResult) SetHashCode() {
 	// order the resources by their hash code to be consistency always
 	// NOTE: review this, it may be a performance issue and may not be necessary
 	sort.Slice(copiedStruct.Resources, func(i, j int) bool {
+		if copiedStruct.Resources[i] == nil || copiedStruct.Resources[j] == nil {
+			return false
+		}
 		return copiedStruct.Resources[i].HashCode < copiedStruct.Resources[j].HashCode
 	})
 

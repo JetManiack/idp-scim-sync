@@ -894,6 +894,19 @@ func TestUsersResult_SetHashCode(t *testing.T) {
 			t.Errorf("UsersResult.HashCode should be equal: ur5-> %s, ur4-> %s", ur5.HashCode, ur4.HashCode)
 		}
 	})
+
+	t.Run("with nil resources", func(t *testing.T) {
+		ur := UsersResult{
+			Items:     3,
+			Resources: []*User{u1, nil, u2},
+		}
+		// Should not panic
+		ur.SetHashCode()
+
+		if ur.HashCode == "" {
+			t.Errorf("UsersResult.HashCode should not be empty")
+		}
+	})
 }
 
 func TestUser_GetPrimaryEmailAddress(t *testing.T) {

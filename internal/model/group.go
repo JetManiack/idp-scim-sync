@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"log/slog"
 	"sort"
 
 	"github.com/slashdevops/idp-scim-sync/internal/deepcopy"
@@ -81,6 +82,11 @@ func (gr GroupsResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, g := range gr.Resources {
+		//skip nil pointer
+		if g == nil {
+			slog.Warn("model: error getting group: nil group")
+			continue
+		}
 		if err := enc.Encode(g); err != nil {
 			return nil, err
 		}
@@ -135,6 +141,9 @@ func (gr *GroupsResult) SetHashCode() {
 	// order the resources by their hash code to be consistency always
 	// NOTE: review this, it may be a performance issue and may not be necessary
 	sort.Slice(copiedStruct.Resources, func(i, j int) bool {
+		if copiedStruct.Resources[i] == nil || copiedStruct.Resources[j] == nil {
+			return false
+		}
 		return copiedStruct.Resources[i].HashCode < copiedStruct.Resources[j].HashCode
 	})
 
