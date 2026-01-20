@@ -88,6 +88,9 @@ func (mr MembersResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, member := range mr.Resources {
+		if member == nil {
+			continue
+		}
 		if err := enc.Encode(member); err != nil {
 			return nil, err
 		}
@@ -134,6 +137,9 @@ func (mr *MembersResult) SetHashCode() {
 	// order the resources by their hash code to be consistency always
 	// NOTE: review this, it may be a performance issue and may not be necessary
 	sort.Slice(copyStruct.Resources, func(i, j int) bool {
+		if copyStruct.Resources[i] == nil || copyStruct.Resources[j] == nil {
+			return false
+		}
 		return copyStruct.Resources[i].IPID < copyStruct.Resources[j].IPID
 	})
 
@@ -164,6 +170,9 @@ func (gm GroupMembers) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, member := range gm.Resources {
+		if member == nil {
+			continue
+		}
 		if err := enc.Encode(member); err != nil {
 			return nil, err
 		}
@@ -218,6 +227,9 @@ func (gm *GroupMembers) SetHashCode() {
 	// because this never could be empty and it is unique
 	// NOTE: review this, it may be a performance issue and may not be necessary
 	sort.Slice(copiedStruct.Resources, func(i, j int) bool {
+		if copiedStruct.Resources[i] == nil || copiedStruct.Resources[j] == nil {
+			return false
+		}
 		return copiedStruct.Resources[i].Email < copiedStruct.Resources[j].Email
 	})
 
@@ -241,6 +253,9 @@ func (gmr GroupsMembersResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, group := range gmr.Resources {
+		if group == nil {
+			continue
+		}
 		if err := enc.Encode(group); err != nil {
 			return nil, err
 		}
@@ -296,6 +311,9 @@ func (gmr *GroupsMembersResult) SetHashCode() {
 	// because this never could be empty and it is unique
 	// NOTE: review this, it may be a performance issue and may not be necessary
 	sort.Slice(copiedStruct.Resources, func(i, j int) bool {
+		if copiedStruct.Resources[i] == nil || copiedStruct.Resources[j] == nil {
+			return false
+		}
 		return copiedStruct.Resources[i].HashCode < copiedStruct.Resources[j].HashCode
 	})
 

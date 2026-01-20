@@ -524,6 +524,9 @@ func (ur UsersResult) MarshalBinary() ([]byte, error) {
 	}
 
 	for _, u := range ur.Resources {
+		if u == nil {
+			continue
+		}
 		if err := enc.Encode(u); err != nil {
 			return nil, err
 		}
@@ -578,6 +581,9 @@ func (ur *UsersResult) SetHashCode() {
 	// order the resources by their hash code to be consistency always
 	// NOTE: review this, it may be a performance issue and may not be necessary
 	sort.Slice(copiedStruct.Resources, func(i, j int) bool {
+		if copiedStruct.Resources[i] == nil || copiedStruct.Resources[j] == nil {
+			return false
+		}
 		return copiedStruct.Resources[i].HashCode < copiedStruct.Resources[j].HashCode
 	})
 

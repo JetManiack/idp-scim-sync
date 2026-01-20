@@ -396,6 +396,19 @@ func TestGroupsMembersResult_SetHashCode(t *testing.T) {
 	if gmr5.HashCode != gmr4.HashCode {
 		t.Errorf("GroupsMembersResult.HashCode should be equal: gmr5-> %s, gmr4-> %s", gmr5.HashCode, gmr4.HashCode)
 	}
+
+	t.Run("with nil resources", func(t *testing.T) {
+		gmr := GroupsMembersResult{
+			Items:     3,
+			Resources: []*GroupMembers{gm1, nil, gm2},
+		}
+		// Should not panic
+		gmr.SetHashCode()
+
+		if gmr.HashCode == "" {
+			t.Errorf("GroupsMembersResult.HashCode should not be empty")
+		}
+	})
 }
 
 func TestGroupMembers_GobEncode(t *testing.T) {

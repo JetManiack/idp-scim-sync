@@ -257,6 +257,19 @@ func TestGroupsResult_SetHashCode(t *testing.T) {
 	if gr5.HashCode != gr4.HashCode {
 		t.Errorf("GroupsResult.HashCode should be equal: gr5-> %s, gr4-> %s", gr5.HashCode, gr4.HashCode)
 	}
+
+	t.Run("with nil resources", func(t *testing.T) {
+		gr := GroupsResult{
+			Items:     3,
+			Resources: []*Group{g1, nil, g2},
+		}
+		// Should not panic
+		gr.SetHashCode()
+
+		if gr.HashCode == "" {
+			t.Errorf("GroupsResult.HashCode should not be empty")
+		}
+	})
 }
 
 func TestGroupsResult_MarshalJSON(t *testing.T) {

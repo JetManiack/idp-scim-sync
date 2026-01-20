@@ -302,6 +302,42 @@ func TestGetUsers(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Should return UsersResult with filtered nil and no error",
+			prepare: func(f *fields) {
+				ctx := context.Background()
+				googleUsers := []*admin.User{
+					{
+						Id:           "1",
+						PrimaryEmail: "user.1@mail.com",
+						Name:         &admin.UserName{GivenName: "user", FamilyName: "1"},
+					},
+					{
+						Id:           "2",
+						PrimaryEmail: "", // This will cause buildUser to return nil
+						Name:         &admin.UserName{GivenName: "user", FamilyName: "2"},
+					},
+				}
+				f.ds.EXPECT().ListUsers(ctx, gomock.Eq([]string{""})).Return(googleUsers, nil).Times(1)
+			},
+			args: args{ctx: context.Background(), filter: []string{""}},
+			want: &model.UsersResult{
+				Items: 1,
+				Resources: []*model.User{
+					model.UserBuilder().
+						WithIPID("1").
+						WithName(&model.Name{GivenName: "user", FamilyName: "1"}).
+						WithDisplayName("user 1").
+						WithUserName("user.1@mail.com").
+						WithActive(true).
+						WithEmails([]model.Email{
+							model.EmailBuilder().WithValue("user.1@mail.com").WithType("work").WithPrimary(true).Build(),
+						}).
+						Build(),
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -683,6 +719,57 @@ func TestGetUsersByGroupsMembers(t *testing.T) {
 									Build(),
 							},
 						).
+						Build(),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Should return UsersResult with filtered nil and no error",
+			prepare: func(f *fields) {
+				ctx := context.Background()
+				googleUser1 := &admin.User{
+					Id:           "1",
+					PrimaryEmail: "user.1@mail.com",
+					Name:         &admin.UserName{GivenName: "user", FamilyName: "1"},
+				}
+				googleUser2 := &admin.User{
+					Id:           "2",
+					PrimaryEmail: "", // Will cause buildUser to return nil
+					Name:         &admin.UserName{GivenName: "user", FamilyName: "2"},
+				}
+
+				gomock.InOrder(
+					f.ds.EXPECT().GetUser(ctx, gomock.Eq("user.1@mail.com")).Return(googleUser1, nil).Times(1),
+					f.ds.EXPECT().GetUser(ctx, gomock.Eq("user.2@mail.com")).Return(googleUser2, nil).Times(1),
+				)
+			},
+			args: args{
+				ctx: context.Background(),
+				gmr: &model.GroupsMembersResult{
+					Resources: []*model.GroupMembers{
+						{
+							Group: &model.Group{IPID: "1", Name: "group 1", Email: "group1@mail.com"},
+							Resources: []*model.Member{
+								{IPID: "1", Email: "user.1@mail.com", Status: "ACTIVE"},
+								{IPID: "2", Email: "user.2@mail.com", Status: "ACTIVE"},
+							},
+						},
+					},
+				},
+			},
+			want: &model.UsersResult{
+				Items: 1,
+				Resources: []*model.User{
+					model.UserBuilder().
+						WithIPID("1").
+						WithName(&model.Name{GivenName: "user", FamilyName: "1"}).
+						WithDisplayName("user 1").
+						WithActive(true).
+						WithUserName("user.1@mail.com").
+						WithEmails([]model.Email{
+							model.EmailBuilder().WithValue("user.1@mail.com").WithType("work").WithPrimary(true).Build(),
+						}).
 						Build(),
 				},
 			},

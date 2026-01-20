@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/slashdevops/idp-scim-sync/internal/convert"
@@ -115,10 +116,16 @@ func (i *IdentityProvider) GetUsers(ctx context.Context, filter []string) (*mode
 		return uResult, nil
 	}
 
-	syncUsers := make([]*model.User, len(pUsers))
-	for i, usr := range pUsers {
+	syncUsers := make([]*model.User, 0, len(pUsers))
+	for _, usr := range pUsers {
 		gu := buildUser(usr)
-		syncUsers[i] = gu
+
+		// skip nil pointer
+		if gu == nil {
+			continue
+		}
+
+		syncUsers = append(syncUsers, gu)
 	}
 	uResult := model.UsersResultBuilder().WithResources(syncUsers).Build()
 
@@ -199,6 +206,12 @@ func (i *IdentityProvider) GetUsersByGroupsMembers(ctx context.Context, gmr *mod
 					return nil, fmt.Errorf("idp: error getting user: %+v, email: %s, error: %w", member.IPID, member.Email, err)
 				}
 				gu := buildUser(u)
+
+				// skip nil pointer
+				if gu == nil {
+					slog.Warn("idp: skipping member because it doesn't exists, buildUser() returned nil")
+					continue
+				}
 
 				log.Tracef("idp: GetUsersByGroupsMembers, user: %+v", convert.ToJSONString(gu))
 				pUsers = append(pUsers, gu)
