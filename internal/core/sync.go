@@ -119,6 +119,9 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 			"users":        idpUsersResult.Items,
 		}).Info("users retrieved from the identity provider for syncing that match the filter")
 
+	// filter out group members whose users were skipped (e.g. deleted in IdP)
+	idpGroupsMembersResult = filterGroupsMembersByUsers(idpGroupsMembersResult, idpUsersResult)
+
 	log.Info("getting state data")
 	state, err := ss.repo.GetState(ctx)
 	if err != nil {
@@ -202,4 +205,50 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 		"date": time.Now().Format(time.RFC3339),
 	}).Info("sync completed")
 	return nil
+}
+
+// filterGroupsMembersByUsers removes members from groups whose IPID
+// is not present in the resolved users list (e.g. user was deleted in IdP).
+// Matches by IPID (Google user ID) rather than email to handle email aliases.
+func filterGroupsMembersByUsers(gmr *model.GroupsMembersResult, ur *model.UsersResult) *model.GroupsMembersResult {
+	knownIPIDs := make(map[string]struct{}, len(ur.Resources))
+	for _, u := range ur.Resources {
+		knownIPIDs[u.IPID] = struct{}{}
+	}
+
+	filtered := make([]*model.GroupMembers, 0, len(gmr.Resources))
+	for _, gm := range gmr.Resources {
+		members := make([]*model.Member, 0, len(gm.Resources))
+		for _, m := range gm.Resources {
+			if _, ok := knownIPIDs[m.IPID]; ok {
+				members = append(members, m)
+			} else {
+				log.WithFields(log.Fields{
+					"group": gm.Group.Name,
+					"email": m.Email,
+					"ipid":  m.IPID,
+				}).Warn("filtering out group member not found in resolved users")
+			}
+		}
+
+		for _, m := range members {
+			log.WithFields(log.Fields{
+				"group": gm.Group.Name,
+				"email": m.Email,
+			}).Info("keeping group member")
+		}
+
+		fm := model.GroupMembersBuilder().
+			WithGroup(gm.Group).
+			WithResources(members).
+			Build()
+		filtered = append(filtered, fm)
+	}
+
+	result := &model.GroupsMembersResult{
+		Items:     len(filtered),
+		Resources: filtered,
+	}
+	result.SetHashCode()
+	return result
 }

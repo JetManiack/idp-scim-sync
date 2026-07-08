@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/slashdevops/idp-scim-sync/internal/convert"
@@ -204,7 +205,11 @@ func (i *IdentityProvider) GetUsersByGroupsMembers(ctx context.Context, gmr *mod
 				// per request
 				u, err := i.ps.GetUser(ctx, member.Email)
 				if err != nil {
-					return nil, fmt.Errorf("idp: error getting user: %+v, email: %s, error: %w", member.IPID, member.Email, err)
+					if strings.Contains(err.Error(), "404") {
+						slog.Warn("idp: skipping user not found in IdP", "ipid", member.IPID, "email", member.Email, "group", groupMembers.Group.Name, "error", err)
+						continue
+					}
+					return nil, fmt.Errorf("idp: error getting user: %+v, email: %s, group: %s, error: %w", member.IPID, member.Email, groupMembers.Group.Name, err)
 				}
 				gu := buildUser(u)
 
