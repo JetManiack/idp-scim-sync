@@ -365,6 +365,12 @@ func (s *Provider) CreateGroupsMembers(ctx context.Context, gmr *model.GroupsMem
 				member.SCIMID = u.ID
 			}
 
+			// GetUserByUserName returns an empty response and no error when the user
+			// does not exist, so guard against sending an empty memberId to AWS
+			if member.SCIMID == "" {
+				return nil, fmt.Errorf("scim: user not found in SCIM provider, group: %s, email: %s", groupMembers.Group.Name, member.Email)
+			}
+
 			membersIDValue = append(membersIDValue, patchValue{
 				Value: member.SCIMID,
 			})

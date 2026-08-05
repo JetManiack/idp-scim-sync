@@ -211,24 +211,43 @@ func (ss *SyncService) SyncGroupsAndTheirMembers(ctx context.Context) error {
 // is not present in the resolved users list (e.g. user was deleted in IdP).
 // Matches by IPID (Google user ID) rather than email to handle email aliases.
 func filterGroupsMembersByUsers(gmr *model.GroupsMembersResult, ur *model.UsersResult) *model.GroupsMembersResult {
-	knownIPIDs := make(map[string]struct{}, len(ur.Resources))
+	primaryEmails := make(map[string]string, len(ur.Resources))
 	for _, u := range ur.Resources {
-		knownIPIDs[u.IPID] = struct{}{}
+		primaryEmails[u.IPID] = u.UserName
 	}
 
 	filtered := make([]*model.GroupMembers, 0, len(gmr.Resources))
 	for _, gm := range gmr.Resources {
 		members := make([]*model.Member, 0, len(gm.Resources))
 		for _, m := range gm.Resources {
-			if _, ok := knownIPIDs[m.IPID]; ok {
-				members = append(members, m)
-			} else {
+			primary, ok := primaryEmails[m.IPID]
+			if !ok {
 				log.WithFields(log.Fields{
 					"group": gm.Group.Name,
 					"email": m.Email,
 					"ipid":  m.IPID,
 				}).Warn("filtering out group member not found in resolved users")
+				continue
 			}
+
+			// group membership can reference an email alias, but the SCIM side
+			// keys users by their primary email, so normalize it here
+			if m.Email != primary {
+				log.WithFields(log.Fields{
+					"group":   gm.Group.Name,
+					"alias":   m.Email,
+					"primary": primary,
+				}).Warn("normalizing group member alias email to the primary email")
+
+				m = model.MemberBuilder().
+					WithIPID(m.IPID).
+					WithSCIMID(m.SCIMID).
+					WithEmail(primary).
+					WithStatus(m.Status).
+					Build()
+			}
+
+			members = append(members, m)
 		}
 
 		for _, m := range members {
