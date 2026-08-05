@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/slashdevops/idp-scim-sync/internal/convert"
@@ -203,9 +204,9 @@ func (i *IdentityProvider) GetUsersByGroupsMembers(ctx context.Context, gmr *mod
 				// https://developers.google.com/admin-sdk/directory/reference/rest/v1/users/list
 				// using the query parameter to filter by emails and retrieve the maximum number of users
 				// per request
-				u, err := i.ps.GetUser(ctx, member.Email)
+				u, err := i.getUserWithRetry(ctx, member.Email)
 				if err != nil {
-					if strings.Contains(err.Error(), "404") {
+					if isNotFoundErr(err) {
 						slog.Warn("idp: skipping user not found in IdP", "ipid", member.IPID, "email", member.Email, "group", groupMembers.Group.Name, "error", err)
 						continue
 					}
@@ -230,6 +231,50 @@ func (i *IdentityProvider) GetUsersByGroupsMembers(ctx context.Context, gmr *mod
 	log.Tracef("idp: GetUsersByGroupsMembers(): %+v", convert.ToJSONString(pUsersResult))
 
 	return pUsersResult, nil
+}
+
+// getUserRetries is the number of extra attempts made when the IdP answers
+// with a transient error.
+const getUserRetries = 4
+
+// isNotFoundErr reports whether the IdP answered that the user does not exist.
+func isNotFoundErr(err error) bool {
+	return strings.Contains(err.Error(), "Error 404")
+}
+
+// isTransientErr reports whether the IdP error is temporary and worth retrying.
+func isTransientErr(err error) bool {
+	msg := err.Error()
+	for _, code := range []string{"Error 429", "Error 500", "Error 502", "Error 503", "Error 504"} {
+		if strings.Contains(msg, code) {
+			return true
+		}
+	}
+	return false
+}
+
+// getUserWithRetry returns a user from the Identity Provider API, retrying
+// transient errors with an exponential backoff.
+func (i *IdentityProvider) getUserWithRetry(ctx context.Context, email string) (*admin.User, error) {
+	for attempt := 0; ; attempt++ {
+		u, err := i.ps.GetUser(ctx, email)
+		if err == nil {
+			return u, nil
+		}
+
+		if attempt == getUserRetries || !isTransientErr(err) {
+			return nil, err
+		}
+
+		wait := time.Duration(1<<attempt) * time.Second
+		slog.Warn("idp: transient error getting user, retrying", "email", email, "attempt", attempt+1, "wait", wait.String(), "error", err)
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(wait):
+		}
+	}
 }
 
 // GetGroupsMembers return the members of the groups
